@@ -38,7 +38,7 @@ Implementation plan for the security utilities library providing password hashin
 | Phase 3: Token Generation | ✅ Complete | `41323f2` | 93.6% |
 | Phase 4: PIN Generation | ✅ Complete | `809e691` | 92.6% |
 | Phase 5: Encryption | ✅ Complete | `ac1aab7` | 92.3% |
-| Phase 6: PII Masking | ⏳ Pending | - | - |
+| Phase 6: PII Masking | ✅ Complete | `3c8397d` | 98.1% |
 | Phase 7: OTP Service | ⏳ Pending | - | - |
 | Phase 8: Security Audit Logging | ⏳ Pending | - | - |
 | Phase 9: Integration & Documentation | ⏳ Pending | - | - |
@@ -230,52 +230,52 @@ Implementation plan for the security utilities library providing password hashin
 
 ---
 
-## Phase 6: PII Masking (`mask` package)
+## Phase 6: PII Masking (`mask` package) ✅
 
 ### 6.1 Phone Number Masking
-- [ ] Implement `Phone(phone string) string`
-- [ ] Accept both `string` and integration with `contact.PhoneNumber`
-- [ ] Format: `+258****4567` (preserve country code prefix and last 4 digits)
-- [ ] Handle various formats (with/without +, spaces, dashes)
-- [ ] Return empty string for empty input
+- [x] Implement `Phone(phone string) string`
+- [x] Accept both `string` and integration with `contact.PhoneNumber`
+- [x] Format: `+258****4567` (preserve country code prefix and last 4 digits)
+- [x] Handle various formats (with/without +, spaces, dashes)
+- [x] Return empty string for empty input
 
 ### 6.2 Email Masking
-- [ ] Implement `Email(email string) string`
-- [ ] Accept both `string` and integration with `contact.Email`
-- [ ] Format: `u***@example.com` (first char of local part + mask + full domain)
-- [ ] Handle short local parts (1-2 chars): mask entirely except first char
-- [ ] Return empty string for empty input
+- [x] Implement `Email(email string) string`
+- [x] Accept both `string` and integration with `contact.Email`
+- [x] Format: `u***@example.com` (first char of local part + mask + full domain)
+- [x] Handle short local parts (1-2 chars): mask entirely except first char
+- [x] Return empty string for empty input
 
 ### 6.3 Name Masking
-- [ ] Implement `Name(name string) string`
-- [ ] Format: `J*** S****` (first char of each word + mask based on remaining length)
-- [ ] Handle single names: `John` → `J***`
-- [ ] Handle multiple names: `John Smith Jr` → `J*** S**** J*`
-- [ ] Preserve word structure
+- [x] Implement `Name(name string) string`
+- [x] Format: `J*** S****` (first char of each word + mask based on remaining length)
+- [x] Handle single names: `John` → `J***`
+- [x] Handle multiple names: `John Smith Jr` → `J*** S**** J*`
+- [x] Preserve word structure
 
 ### 6.4 Card Number Masking
-- [ ] Implement `Card(number string) string`
-- [ ] Format: `****1111` (mask all but last 4 digits)
-- [ ] Strip non-digits before masking
-- [ ] Handle various formats (spaces, dashes)
+- [x] Implement `Card(number string) string`
+- [x] Format: `****1111` (mask all but last 4 digits)
+- [x] Strip non-digits before masking
+- [x] Handle various formats (spaces, dashes)
 
 ### 6.5 ID Document Masking
-- [ ] Implement `ID(id string) string`
-- [ ] Format: `AB***456` (first 2 chars + mask + last 3 chars)
-- [ ] Handle variable length IDs
-- [ ] For short IDs (< 5 chars), mask middle portion
+- [x] Implement `ID(id string) string`
+- [x] Format: `AB***456` (first 2 chars + mask + last 3 chars)
+- [x] Handle variable length IDs
+- [x] For short IDs (< 5 chars), mask middle portion
 
 ### 6.6 Configuration
-- [ ] Support configurable mask character via `WithMaskChar(char rune)` option
-- [ ] Default mask character: `*`
-- [ ] Implement `Masker` struct for configured masking
+- [x] Support configurable mask character via `WithMaskChar(char rune)` option
+- [x] Default mask character: `*`
+- [x] Implement `Masker` struct for configured masking
 
 ### 6.7 Tests
-- [ ] Test each masking function with various inputs
-- [ ] Test edge cases: empty, single char, very long
-- [ ] Test with `contact.PhoneNumber` and `contact.Email` types
-- [ ] Test custom mask character
-- [ ] Test format preservation (spaces, structure)
+- [x] Test each masking function with various inputs
+- [x] Test edge cases: empty, single char, very long
+- [x] Test with `contact.PhoneNumber` and `contact.Email` types
+- [x] Test custom mask character
+- [x] Test format preservation (spaces, structure)
 
 ---
 
