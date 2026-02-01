@@ -306,6 +306,30 @@ func TestIsAllSameDigit_EmptyString(t *testing.T) {
 	}
 }
 
+func TestWithAdditionalBlacklist_NilBlacklist(t *testing.T) {
+	// Test that WithAdditionalBlacklist works even when Blacklist is nil.
+	gen := NewGenerator(
+		WithBlacklist(nil),
+		WithAdditionalBlacklist("9876"),
+	)
+
+	// Should have added the PIN to the blacklist.
+	err := gen.Validate("9876")
+	if err == nil {
+		t.Error("expected error for blacklisted PIN")
+	}
+}
+
+func TestValidate_NonASCIIDigit(t *testing.T) {
+	gen := NewGenerator()
+
+	// Arabic-Indic digit '٤' (U+0664) - unicode.IsDigit returns true for this.
+	err := gen.Validate("12٤5")
+	if err == nil {
+		t.Error("expected error for non-ASCII digit")
+	}
+}
+
 // contains checks if s contains substr.
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || s != "" && containsHelper(s, substr))

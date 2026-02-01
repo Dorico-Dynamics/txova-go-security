@@ -17,6 +17,8 @@ const (
 	CodeOTPLocked errors.Code = "OTP_LOCKED"
 	// CodeOTPCooldown indicates the user must wait before requesting a new OTP.
 	CodeOTPCooldown errors.Code = "OTP_COOLDOWN"
+	// CodeOTPStorageFailed indicates a storage operation for OTP failed.
+	CodeOTPStorageFailed errors.Code = "OTP_STORAGE_FAILED"
 	// CodeEncryptionFailed indicates an encryption operation failed.
 	CodeEncryptionFailed errors.Code = "ENCRYPTION_FAILED"
 	// CodeDecryptionFailed indicates a decryption operation failed.
@@ -33,6 +35,7 @@ var codeHTTPStatus = map[errors.Code]int{
 	CodeOTPInvalid:       http.StatusUnauthorized,
 	CodeOTPLocked:        http.StatusTooManyRequests,
 	CodeOTPCooldown:      http.StatusTooManyRequests,
+	CodeOTPStorageFailed: http.StatusInternalServerError,
 	CodeEncryptionFailed: http.StatusInternalServerError,
 	CodeDecryptionFailed: http.StatusBadRequest,
 	CodeInvalidKey:       http.StatusInternalServerError,
@@ -68,6 +71,12 @@ func OTPLocked() *errors.AppError {
 // OTPCooldown creates an error indicating the user must wait.
 func OTPCooldown() *errors.AppError {
 	return errors.New(CodeOTPCooldown, "please wait before requesting a new OTP")
+}
+
+// OTPStorageFailed creates an error indicating OTP storage failed.
+// The cause is wrapped but not exposed to clients.
+func OTPStorageFailed(cause error) *errors.AppError {
+	return errors.Wrap(CodeOTPStorageFailed, "failed to store OTP", cause)
 }
 
 // EncryptionFailed creates an error indicating encryption failed.
@@ -112,6 +121,11 @@ func IsOTPLocked(err error) bool {
 // IsOTPCooldown checks if the error is an OTP cooldown error.
 func IsOTPCooldown(err error) bool {
 	return errors.IsCode(err, CodeOTPCooldown)
+}
+
+// IsOTPStorageFailed checks if the error is an OTP storage failed error.
+func IsOTPStorageFailed(err error) bool {
+	return errors.IsCode(err, CodeOTPStorageFailed)
 }
 
 // IsEncryptionFailed checks if the error is an encryption failed error.

@@ -197,10 +197,11 @@ func (s *Service) Generate(ctx context.Context, phone contact.PhoneNumber) (stri
 	hashedOTP := hashOTP(otp)
 	expiry := time.Now().Add(s.config.Expiry)
 
-	// Store hashed OTP
+	// Store hashed OTP.
 	otpKey := s.key("code", phoneStr)
 	if err := s.redis.Set(ctx, otpKey, hashedOTP, s.config.Expiry).Err(); err != nil {
-		return "", time.Time{}, secerrors.OTPCooldown()
+		s.log(ctx, "error", "Failed to store OTP", "phone", mask.Phone(phoneStr), "error", err)
+		return "", time.Time{}, secerrors.OTPStorageFailed(err)
 	}
 
 	// Set cooldown (skip if cooldown is disabled).

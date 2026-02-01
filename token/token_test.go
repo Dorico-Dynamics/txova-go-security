@@ -180,7 +180,10 @@ func TestGenerateURLSafeWithLength(t *testing.T) {
 				return
 			}
 
-			decoded, _ := base64.RawURLEncoding.DecodeString(token)
+			decoded, err := base64.RawURLEncoding.DecodeString(token)
+			if err != nil {
+				t.Fatalf("base64.RawURLEncoding.DecodeString() error = %v", err)
+			}
 			if len(decoded) != tt.wantDecodeLen {
 				t.Errorf("GenerateURLSafeWithLength() decoded length = %d, want %d", len(decoded), tt.wantDecodeLen)
 			}

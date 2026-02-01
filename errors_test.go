@@ -17,6 +17,7 @@ func TestHTTPStatus(t *testing.T) {
 		{CodeOTPInvalid, http.StatusUnauthorized},
 		{CodeOTPLocked, http.StatusTooManyRequests},
 		{CodeOTPCooldown, http.StatusTooManyRequests},
+		{CodeOTPStorageFailed, http.StatusInternalServerError},
 		{CodeEncryptionFailed, http.StatusInternalServerError},
 		{CodeDecryptionFailed, http.StatusBadRequest},
 		{CodeInvalidKey, http.StatusInternalServerError},
@@ -113,6 +114,16 @@ func TestWrappedErrors(t *testing.T) {
 			t.Errorf("Unwrap() = %v, want %v", err.Unwrap(), cause)
 		}
 	})
+
+	t.Run("OTPStorageFailed", func(t *testing.T) {
+		err := OTPStorageFailed(cause)
+		if err.Code() != CodeOTPStorageFailed {
+			t.Errorf("Code() = %q, want %q", err.Code(), CodeOTPStorageFailed)
+		}
+		if err.Unwrap() != cause {
+			t.Errorf("Unwrap() = %v, want %v", err.Unwrap(), cause)
+		}
+	})
 }
 
 func TestErrorCheckers(t *testing.T) {
@@ -130,6 +141,8 @@ func TestErrorCheckers(t *testing.T) {
 		{"IsOTPLocked with OTPCooldown", OTPCooldown(), IsOTPLocked, false},
 		{"IsOTPCooldown with OTPCooldown", OTPCooldown(), IsOTPCooldown, true},
 		{"IsOTPCooldown with OTPLocked", OTPLocked(), IsOTPCooldown, false},
+		{"IsOTPStorageFailed with OTPStorageFailed", OTPStorageFailed(nil), IsOTPStorageFailed, true},
+		{"IsOTPStorageFailed with OTPCooldown", OTPCooldown(), IsOTPStorageFailed, false},
 		{"IsEncryptionFailed with EncryptionFailed", EncryptionFailed(nil), IsEncryptionFailed, true},
 		{"IsEncryptionFailed with DecryptionFailed", DecryptionFailed(nil), IsEncryptionFailed, false},
 		{"IsDecryptionFailed with DecryptionFailed", DecryptionFailed(nil), IsDecryptionFailed, true},

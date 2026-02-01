@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"unicode"
 
 	"github.com/Dorico-Dynamics/txova-go-core/errors"
 
@@ -74,6 +73,9 @@ func WithBlacklist(blacklist map[string]struct{}) Option {
 // WithAdditionalBlacklist adds PINs to the default blacklist.
 func WithAdditionalBlacklist(pins ...string) Option {
 	return func(c *Config) {
+		if c.Blacklist == nil {
+			c.Blacklist = make(map[string]struct{})
+		}
 		for _, pin := range pins {
 			c.Blacklist[pin] = struct{}{}
 		}
@@ -142,9 +144,9 @@ func (g *Generator) Validate(pin string) error {
 		return secerrors.InvalidPIN(fmt.Sprintf("PIN must be exactly %d digits", PINLength))
 	}
 
-	// Check all characters are digits
-	for _, c := range pin {
-		if !unicode.IsDigit(c) {
+	// Check all characters are ASCII digits (0-9 only).
+	for i := range len(pin) {
+		if pin[i] < '0' || pin[i] > '9' {
 			return secerrors.InvalidPIN("PIN must contain only digits")
 		}
 	}
