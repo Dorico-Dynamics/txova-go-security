@@ -316,6 +316,20 @@ func TestAddKey(t *testing.T) {
 			t.Fatal("expected error for invalid key size")
 		}
 	})
+
+	t.Run("reject duplicate key ID", func(t *testing.T) {
+		key := make([]byte, KeySize)
+		err := cipher.AddKey("secondary", key)
+		if err == nil {
+			t.Fatal("expected error for duplicate key ID")
+		}
+		if !secerrors.IsInvalidKey(err) {
+			t.Errorf("expected InvalidKey error, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), "already exists") {
+			t.Errorf("error should mention key already exists, got: %v", err)
+		}
+	})
 }
 
 func TestEncryptDecryptField(t *testing.T) {

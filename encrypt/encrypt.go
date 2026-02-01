@@ -73,6 +73,11 @@ func (c *Cipher) AddKey(keyID string, key []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Check if key ID already exists.
+	if _, exists := c.keys[keyID]; exists {
+		return secerrors.InvalidKey(fmt.Sprintf("key %q already exists", keyID))
+	}
+
 	return c.addKeyInternal(keyID, key)
 }
 

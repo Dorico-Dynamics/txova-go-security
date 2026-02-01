@@ -119,9 +119,12 @@ func WithLockoutDuration(duration time.Duration) Option {
 }
 
 // WithCooldown sets the cooldown duration between OTP requests.
+// Use duration <= 0 to disable cooldown.
 func WithCooldown(duration time.Duration) Option {
 	return func(s *Service) {
-		if duration > 0 {
+		if duration <= 0 {
+			s.config.Cooldown = 0
+		} else {
 			s.config.Cooldown = duration
 		}
 	}
@@ -170,15 +173,18 @@ func New(redis RedisClient, opts ...Option) *Service {
 func (s *Service) Generate(ctx context.Context, phone contact.PhoneNumber) (string, time.Time, error) {
 	phoneStr := phone.String()
 
-	// Check cooldown
-	cooldownKey := s.key("cooldown", phoneStr)
-	exists, err := s.redis.Exists(ctx, cooldownKey).Result()
-	if err != nil {
-		return "", time.Time{}, secerrors.OTPCooldown()
-	}
-	if exists > 0 {
-		s.log(ctx, "warn", "OTP cooldown active", "phone", mask.Phone(phoneStr))
-		return "", time.Time{}, secerrors.OTPCooldown()
+	// Check cooldown (skip if cooldown is disabled).
+	if s.config.Cooldown > 0 {
+		cooldownKey := s.key("cooldown", phoneStr)
+		exists, err := s.redis.Exists(ctx, cooldownKey).Result()
+		if err != nil {
+			s.log(ctx, "error", "Redis error checking cooldown", "phone", mask.Phone(phoneStr), "error", err)
+			return "", time.Time{}, fmt.Errorf("failed to check cooldown: %w", err)
+		}
+		if exists > 0 {
+			s.log(ctx, "warn", "OTP cooldown active", "phone", mask.Phone(phoneStr))
+			return "", time.Time{}, secerrors.OTPCooldown()
+		}
 	}
 
 	// Generate OTP
@@ -197,10 +203,13 @@ func (s *Service) Generate(ctx context.Context, phone contact.PhoneNumber) (stri
 		return "", time.Time{}, secerrors.OTPCooldown()
 	}
 
-	// Set cooldown
-	if err := s.redis.Set(ctx, cooldownKey, "1", s.config.Cooldown).Err(); err != nil {
-		// Log but don't fail - OTP was already generated
-		s.log(ctx, "warn", "Failed to set cooldown", "phone", mask.Phone(phoneStr))
+	// Set cooldown (skip if cooldown is disabled).
+	if s.config.Cooldown > 0 {
+		cooldownKey := s.key("cooldown", phoneStr)
+		if err := s.redis.Set(ctx, cooldownKey, "1", s.config.Cooldown).Err(); err != nil {
+			// Log but don't fail - OTP was already generated.
+			s.log(ctx, "warn", "Failed to set cooldown", "phone", mask.Phone(phoneStr))
+		}
 	}
 
 	s.log(ctx, "info", "OTP generated", "phone", mask.Phone(phoneStr), "expiry", expiry.Format(time.RFC3339))
