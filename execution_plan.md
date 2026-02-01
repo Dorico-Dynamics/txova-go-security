@@ -5,7 +5,27 @@
 Implementation plan for the security utilities library providing password hashing, OTP generation, encryption, token generation, PIN generation, PII masking, and security audit logging for the Txova platform.
 
 **Target Coverage:** > 90%
-**Dependencies:** `txova-go-types`, `txova-go-core`
+
+---
+
+## Internal Dependencies
+
+### txova-go-types
+| Package | Types Used | Purpose |
+|---------|------------|---------|
+| `contact` | `PhoneNumber` | OTP phone validation, masking |
+| `contact` | `Email` | Email masking |
+
+### txova-go-core
+| Package | Types/Functions Used | Purpose |
+|---------|---------------------|---------|
+| `errors` | `AppError`, `Code`, error constructors | Structured error handling |
+| `errors` | `ValidationError()`, `InvalidCredentials()`, `TokenExpired()` | Security-specific errors |
+| `errors` | `InternalErrorWrap()` | Wrap crypto errors without leaking details |
+| `logging` | `Logger`, `*Context()` methods | Structured logging with context |
+| `logging` | `MaskPhone()`, `MaskEmail()`, `MaskSensitive()` | PII masking in logs |
+| `logging` | `PhoneAttr()`, `EmailAttr()`, `SafeAttr()` | Safe log attributes |
+| `context` | `RequestID()`, `UserID()`, `CorrelationID()` | Context field extraction |
 
 ---
 
@@ -31,46 +51,71 @@ Implementation plan for the security utilities library providing password hashin
 
 ### 1.1 Project Setup
 - [ ] Initialize Go module with `github.com/Dorico-Dynamics/txova-go-security`
-- [ ] Add external dependencies: `golang.org/x/crypto/argon2`
-- [ ] Add internal dependencies: `txova-go-types`, `txova-go-core`
+- [ ] Add external dependencies:
+  - `golang.org/x/crypto` (argon2)
+- [ ] Add internal dependencies:
+  - `github.com/Dorico-Dynamics/txova-go-types`
+  - `github.com/Dorico-Dynamics/txova-go-core`
 - [ ] Create package structure: `password/`, `token/`, `pin/`, `encrypt/`, `mask/`, `otp/`, `audit/`
-- [ ] Set up `.golangci.yml` for linting
+- [ ] Set up `.golangci.yml` for linting (copy from txova-go-db)
 
 ### 1.2 Common Error Types
-- [ ] Define security-specific error codes compatible with `txova-go-core/errors`
-- [ ] Create base error types for each package
-- [ ] Support `errors.Is()` and `errors.As()` for error checking
+- [ ] Define security-specific error codes extending `txova-go-core/errors`:
+  - `CodeOTPExpired` - OTP has expired
+  - `CodeOTPInvalid` - OTP is invalid
+  - `CodeOTPLocked` - Account locked due to too many attempts
+  - `CodeOTPCooldown` - Must wait before requesting new OTP
+  - `CodeEncryptionFailed` - Encryption operation failed
+  - `CodeDecryptionFailed` - Decryption operation failed
+- [ ] Create error constructors for each security error type
+- [ ] Support `errors.Is()` and `errors.As()` via `txova-go-core/errors` patterns
+
+### 1.3 Tests
+- [ ] Test error codes and HTTP status mappings
+- [ ] Test error wrapping and unwrapping
 
 ---
 
 ## Phase 2: Password Hashing (`password` package)
 
 ### 2.1 Argon2id Implementation
-- [ ] Implement `Hash(password string) (string, error)` using Argon2id
-- [ ] Use crypto/rand for salt generation (16 bytes)
-- [ ] Configure parameters: Memory=64MB, Iterations=3, Parallelism=4, KeyLength=32 bytes
+- [ ] Implement `Hasher` struct with configuration
+- [ ] Implement `Hash(ctx context.Context, password string) (string, error)` using Argon2id
+- [ ] Use `crypto/rand` for salt generation (16 bytes)
+- [ ] Configure default parameters per OWASP:
+  - Memory: 64 MB (65536 KiB)
+  - Iterations: 3
+  - Parallelism: 4
+  - Salt length: 16 bytes
+  - Key length: 32 bytes
 - [ ] Output PHC-formatted string: `$argon2id$v=19$m=65536,t=3,p=4$salt$hash`
 
 ### 2.2 Verification
-- [ ] Implement `Verify(password, hash string) (bool, error)`
-- [ ] Use constant-time comparison (`subtle.ConstantTimeCompare`)
-- [ ] Parse PHC string to extract parameters
-- [ ] Support verification of hashes with different parameters
+- [ ] Implement `Verify(ctx context.Context, password, hash string) (bool, error)`
+- [ ] Use `crypto/subtle.ConstantTimeCompare` to prevent timing attacks
+- [ ] Parse PHC string to extract parameters for verification
+- [ ] Support verification of hashes created with different parameters
 
 ### 2.3 Parameter Management
-- [ ] Implement `NeedsRehash(hash string) bool` to detect outdated parameters
-- [ ] Support configuration via functional options
-- [ ] Provide sensible defaults matching OWASP recommendations
+- [ ] Implement `NeedsRehash(hash string) (bool, error)` to detect outdated parameters
+- [ ] Support configuration via functional options pattern
+- [ ] Provide `DefaultConfig()` and `NewDefault()` constructors
 
 ### 2.4 Validation
-- [ ] Implement `ValidatePassword(password string) error` for basic validation
-- [ ] Configurable minimum/maximum length constraints
+- [ ] Implement `ValidatePassword(password string) error` for basic length validation
+- [ ] Constants: `MinPasswordLength = 8`, `MaxPasswordLength = 128`
+- [ ] Return `errors.ValidationError()` for invalid passwords
 
-### 2.5 Tests
+### 2.5 Integration
+- [ ] Accept `*logging.Logger` for optional logging (hash timing, etc.)
+- [ ] Use `errors.InternalErrorWrap()` for crypto failures
+
+### 2.6 Tests
 - [ ] Test hash generation produces valid PHC format
 - [ ] Test verification with correct/incorrect passwords
-- [ ] Test constant-time comparison (no timing leaks)
-- [ ] Test parameter upgrade detection
+- [ ] Test empty password handling
+- [ ] Test parameter upgrade detection (`NeedsRehash`)
+- [ ] Test functional options
 - [ ] Benchmark hash time (target: 200-500ms)
 
 ---
@@ -78,25 +123,31 @@ Implementation plan for the security utilities library providing password hashin
 ## Phase 3: Token Generation (`token` package)
 
 ### 3.1 Secure Random Generation
-- [ ] Implement `Generate() (string, error)` - 32-byte hex-encoded token
+- [ ] Implement `Generate() (string, error)` - 32-byte hex-encoded token (64 chars)
 - [ ] Implement `GenerateURLSafe() (string, error)` - 32-byte base64url-encoded token
 - [ ] Implement `GenerateWithLength(bytes int) (string, error)` - configurable length
-- [ ] Use crypto/rand exclusively
+- [ ] Use `crypto/rand` exclusively (never `math/rand`)
 
-### 3.2 Token Hashing
-- [ ] Implement `Hash(token string) string` - SHA256 hash for storage
-- [ ] Implement `Compare(token, hash string) bool` - constant-time comparison
-- [ ] Never store plaintext tokens
+### 3.2 Token Hashing for Storage
+- [ ] Implement `Hash(token string) string` - SHA256 hash (hex-encoded)
+- [ ] Implement `Compare(token, hashedToken string) bool` - constant-time comparison
+- [ ] Document: Never store plaintext tokens, always store hash
 
-### 3.3 Token Types
-- [ ] Define constants for token lengths (session, refresh, reset, verification, API key)
-- [ ] Provide type-specific generators for clarity
+### 3.3 Token Type Helpers
+- [ ] Define constants for standard token lengths:
+  - `SessionTokenBytes = 32`
+  - `RefreshTokenBytes = 32`
+  - `ResetTokenBytes = 32`
+  - `VerificationTokenBytes = 32`
+  - `APIKeyBytes = 32`
+- [ ] Provide type-specific generators: `GenerateSessionToken()`, `GenerateAPIKey()`, etc.
 
 ### 3.4 Tests
-- [ ] Test token uniqueness (no collisions in large sample)
-- [ ] Test token length and format
-- [ ] Test URL-safe encoding
-- [ ] Test hash comparison
+- [ ] Test token uniqueness (generate 10000 tokens, no duplicates)
+- [ ] Test token length and format (hex, base64url)
+- [ ] Test URL-safe encoding (no `+`, `/`, `=`)
+- [ ] Test hash comparison (correct/incorrect)
+- [ ] Benchmark generation speed
 
 ---
 
@@ -104,58 +155,78 @@ Implementation plan for the security utilities library providing password hashin
 
 ### 4.1 Secure PIN Generation
 - [ ] Implement `Generate() (string, error)` - 4-digit PIN
-- [ ] Use crypto/rand for generation
-- [ ] Retry up to 10 times if PIN fails validation rules
+- [ ] Use `crypto/rand` for cryptographically secure random digits
+- [ ] Retry up to `MaxRetries = 10` if generated PIN fails validation
 
 ### 4.2 PIN Validation Rules
 - [ ] Implement `Validate(pin string) error`
-- [ ] Reject sequential PINs: 1234, 2345, 3456, 4567, 5678, 6789
-- [ ] Reject reverse sequential: 4321, 5432, 6543, 7654, 8765, 9876, 3210
-- [ ] Reject repeated digits: 0000, 1111, 2222, ..., 9999
-- [ ] Reject common PINs: 0000, 1234, 0123 (blacklist)
+- [ ] Return `errors.ValidationError()` with specific reason
+- [ ] Validation rules:
+  - Must be exactly 4 digits
+  - No sequential ascending: 0123, 1234, 2345, 3456, 4567, 5678, 6789
+  - No sequential descending: 9876, 8765, 7654, 6543, 5432, 4321, 3210
+  - No repeated digits: 0000, 1111, 2222, ..., 9999
+  - Not in blacklist
 
-### 4.3 Blacklist Management
-- [ ] Define comprehensive blacklist based on PRD
-- [ ] Allow extension of blacklist via configuration
+### 4.3 Blacklist
+- [ ] Define blacklist per PRD:
+  ```
+  0000, 1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999,
+  1234, 2345, 3456, 4567, 5678, 6789, 4321, 3210, 0123
+  ```
+- [ ] Support custom blacklist via configuration
 
 ### 4.4 Tests
-- [ ] Test generated PINs pass all validation rules
-- [ ] Test all blacklisted PINs are rejected
-- [ ] Test sequential detection
-- [ ] Test retry logic on invalid generation
+- [ ] Test all generated PINs pass validation (generate 10000)
+- [ ] Test each blacklisted PIN is rejected
+- [ ] Test sequential detection (ascending and descending)
+- [ ] Test repeated digit detection
+- [ ] Test retry logic exhaustion returns error
+- [ ] Test format validation (non-digits, wrong length)
 
 ---
 
 ## Phase 5: Encryption (`encrypt` package)
 
 ### 5.1 AES-256-GCM Implementation
-- [ ] Implement `Encrypt(plaintext []byte) ([]byte, error)`
-- [ ] Implement `Decrypt(ciphertext []byte) ([]byte, error)`
-- [ ] Use AES-256-GCM (authenticated encryption)
-- [ ] Generate unique 12-byte nonce per encryption using crypto/rand
+- [ ] Implement `Cipher` struct holding keys
+- [ ] Implement `Encrypt(plaintext []byte) (string, error)`
+- [ ] Implement `Decrypt(ciphertext string) ([]byte, error)`
+- [ ] Use AES-256-GCM (authenticated encryption with associated data)
+- [ ] Generate unique 12-byte nonce per encryption using `crypto/rand`
+- [ ] Never reuse nonce with same key
 
-### 5.2 Key Management
-- [ ] Support 256-bit (32-byte) keys
-- [ ] Include key ID in ciphertext for rotation support
-- [ ] Ciphertext format: `{key_id}:{nonce_base64}:{ciphertext_base64}`
-- [ ] Support multiple keys for decryption (rotation)
+### 5.2 Ciphertext Format
+- [ ] Format: `{key_id}:{nonce_base64}:{ciphertext_base64}`
+- [ ] Example: `primary:dGVzdG5vbmNl:Y2lwaGVydGV4dA==`
+- [ ] Parse format on decryption to extract key_id and nonce
 
-### 5.3 Field-Level Encryption
-- [ ] Implement `EncryptField(value string) (string, error)` - string-friendly wrapper
-- [ ] Implement `DecryptField(encrypted string) (string, error)`
-- [ ] Handle empty values gracefully
+### 5.3 Key Management
+- [ ] Support 256-bit (32-byte) keys only
+- [ ] Implement `New(primaryKeyID string, primaryKey []byte) (*Cipher, error)`
+- [ ] Implement `AddKey(keyID string, key []byte) error` for rotation
+- [ ] Implement `SetPrimaryKey(keyID string) error`
+- [ ] Primary key used for encryption, all keys available for decryption
 
-### 5.4 Key Rotation Support
-- [ ] Support decryption with old keys during rotation period
-- [ ] Implement `AddKey(keyID string, key []byte)` for key registry
-- [ ] Implement `SetPrimaryKey(keyID string)` for encryption key selection
+### 5.4 Field-Level Encryption Helpers
+- [ ] Implement `EncryptField(value string) (string, error)` - string wrapper
+- [ ] Implement `DecryptField(encrypted string) (string, error)` - string wrapper
+- [ ] Handle empty strings gracefully (return empty, not error)
 
-### 5.5 Tests
-- [ ] Test encrypt/decrypt roundtrip
-- [ ] Test unique nonce per encryption
-- [ ] Test key rotation (encrypt with new, decrypt with old)
-- [ ] Test tamper detection (GCM authentication)
-- [ ] Test invalid ciphertext handling
+### 5.5 Error Handling
+- [ ] Use `errors.New(CodeEncryptionFailed, ...)` for encryption errors
+- [ ] Use `errors.New(CodeDecryptionFailed, ...)` for decryption errors
+- [ ] Never expose internal crypto errors to callers
+
+### 5.6 Tests
+- [ ] Test encrypt/decrypt roundtrip (various sizes)
+- [ ] Test unique nonce per encryption (encrypt same plaintext twice)
+- [ ] Test key rotation (encrypt with new key, decrypt with old key)
+- [ ] Test tamper detection (modify ciphertext, should fail)
+- [ ] Test invalid key ID handling
+- [ ] Test invalid ciphertext format handling
+- [ ] Test empty plaintext/ciphertext
+- [ ] Benchmark encryption latency (target: < 1ms)
 
 ---
 
@@ -163,143 +234,216 @@ Implementation plan for the security utilities library providing password hashin
 
 ### 6.1 Phone Number Masking
 - [ ] Implement `Phone(phone string) string`
-- [ ] Format: `+258****4567` (preserve country code and last 4)
-- [ ] Handle various phone formats
+- [ ] Accept both `string` and integration with `contact.PhoneNumber`
+- [ ] Format: `+258****4567` (preserve country code prefix and last 4 digits)
+- [ ] Handle various formats (with/without +, spaces, dashes)
+- [ ] Return empty string for empty input
 
 ### 6.2 Email Masking
 - [ ] Implement `Email(email string) string`
-- [ ] Format: `u***@example.com` (first char + mask + domain)
-- [ ] Handle edge cases (short local parts)
+- [ ] Accept both `string` and integration with `contact.Email`
+- [ ] Format: `u***@example.com` (first char of local part + mask + full domain)
+- [ ] Handle short local parts (1-2 chars): mask entirely except first char
+- [ ] Return empty string for empty input
 
 ### 6.3 Name Masking
 - [ ] Implement `Name(name string) string`
-- [ ] Format: `J*** S****` (first char of each word + mask)
-- [ ] Handle single names, multiple names
+- [ ] Format: `J*** S****` (first char of each word + mask based on remaining length)
+- [ ] Handle single names: `John` → `J***`
+- [ ] Handle multiple names: `John Smith Jr` → `J*** S**** J*`
+- [ ] Preserve word structure
 
 ### 6.4 Card Number Masking
 - [ ] Implement `Card(number string) string`
-- [ ] Format: `****1111` (last 4 only)
+- [ ] Format: `****1111` (mask all but last 4 digits)
 - [ ] Strip non-digits before masking
+- [ ] Handle various formats (spaces, dashes)
 
 ### 6.5 ID Document Masking
 - [ ] Implement `ID(id string) string`
-- [ ] Format: `AB***456` (first 2 + mask + last 3)
+- [ ] Format: `AB***456` (first 2 chars + mask + last 3 chars)
 - [ ] Handle variable length IDs
+- [ ] For short IDs (< 5 chars), mask middle portion
 
-### 6.6 Auto-Detection
-- [ ] Implement `Auto(value string, dataType DataType) string`
-- [ ] Support configurable mask character (default: `*`)
+### 6.6 Configuration
+- [ ] Support configurable mask character via `WithMaskChar(char rune)` option
+- [ ] Default mask character: `*`
+- [ ] Implement `Masker` struct for configured masking
 
 ### 6.7 Tests
 - [ ] Test each masking function with various inputs
-- [ ] Test edge cases (empty, very short, very long)
-- [ ] Test mask character configuration
+- [ ] Test edge cases: empty, single char, very long
+- [ ] Test with `contact.PhoneNumber` and `contact.Email` types
+- [ ] Test custom mask character
+- [ ] Test format preservation (spaces, structure)
 
 ---
 
 ## Phase 7: OTP Service (`otp` package)
 
-### 7.1 OTP Generation
-- [ ] Implement `Generate(ctx context.Context, phone string) (string, time.Time, error)`
-- [ ] Generate 6-digit OTP using crypto/rand
-- [ ] Hash OTP before storing (never store plaintext)
+### 7.1 Dependencies
+- [ ] Require Redis client interface for storage
+- [ ] Accept `*logging.Logger` for logging
+- [ ] Use `contact.PhoneNumber` for phone validation
+
+### 7.2 OTP Generation
+- [ ] Implement `Service` struct with config and Redis client
+- [ ] Implement `Generate(ctx context.Context, phone contact.PhoneNumber) (string, time.Time, error)`
+- [ ] Generate 6-digit OTP using `crypto/rand`
+- [ ] Check cooldown before generating (return `CodeOTPCooldown` error if active)
+- [ ] Hash OTP with SHA256 before storing (never store plaintext)
+- [ ] Store in Redis with TTL: `otp:{phone}` → hashed OTP (5 minutes)
+- [ ] Set cooldown: `otp:cooldown:{phone}` (60 seconds)
+- [ ] Return plaintext OTP to caller (for sending via SMS)
 - [ ] Return expiry time
 
-### 7.2 OTP Verification
-- [ ] Implement `Verify(ctx context.Context, phone, code string) (bool, error)`
-- [ ] Increment attempt counter on every verification (success or fail)
-- [ ] Clear OTP after successful verification
+### 7.3 OTP Verification
+- [ ] Implement `Verify(ctx context.Context, phone contact.PhoneNumber, code string) error`
+- [ ] Check lockout first (return `CodeOTPLocked` if locked)
+- [ ] Increment attempt counter on every call (success or fail)
+- [ ] Hash provided code and compare with stored hash
+- [ ] On success: delete OTP and attempts keys
+- [ ] On failure: check if max attempts reached, set lockout if so
 - [ ] Return generic errors (don't reveal if phone exists)
 
-### 7.3 Rate Limiting & Lockout
-- [ ] Implement cooldown between requests (60 seconds)
-- [ ] Implement max attempts (3) before lockout
-- [ ] Implement lockout duration (15 minutes)
-- [ ] Implement `IsLocked(ctx context.Context, phone string) (bool, error)`
-- [ ] Implement `GetAttempts(ctx context.Context, phone string) (int, error)`
-
-### 7.4 Redis Storage
+### 7.4 Rate Limiting & Lockout
 - [ ] Key patterns:
-  - `otp:{phone}` - hashed OTP code (TTL: 5m)
+  - `otp:{phone}` - hashed OTP (TTL: 5m)
   - `otp:attempts:{phone}` - attempt counter (TTL: 15m)
   - `otp:lockout:{phone}` - lockout flag (TTL: 15m)
-  - `otp:cooldown:{phone}` - rate limit (TTL: 60s)
-- [ ] Implement `Invalidate(ctx context.Context, phone string) error`
+  - `otp:cooldown:{phone}` - cooldown flag (TTL: 60s)
+- [ ] Implement `IsLocked(ctx context.Context, phone contact.PhoneNumber) (bool, error)`
+- [ ] Implement `GetAttempts(ctx context.Context, phone contact.PhoneNumber) (int, error)`
+- [ ] Implement `Invalidate(ctx context.Context, phone contact.PhoneNumber) error`
 
 ### 7.5 Configuration
-- [ ] Configurable OTP length (default: 6)
-- [ ] Configurable expiry (default: 5 minutes)
-- [ ] Configurable max attempts (default: 3)
-- [ ] Configurable lockout duration (default: 15 minutes)
-- [ ] Configurable cooldown (default: 60 seconds)
+- [ ] `Config` struct with:
+  - `Length int` (default: 6)
+  - `Expiry time.Duration` (default: 5m)
+  - `MaxAttempts int` (default: 3)
+  - `LockoutDuration time.Duration` (default: 15m)
+  - `Cooldown time.Duration` (default: 60s)
+  - `KeyPrefix string` (default: "otp")
+- [ ] Functional options: `WithLength()`, `WithExpiry()`, etc.
 
-### 7.6 Tests
-- [ ] Test OTP generation format
+### 7.6 Logging Integration
+- [ ] Log OTP generation (masked phone, expiry) at INFO level
+- [ ] Log verification attempts (masked phone, success/fail) at INFO/WARN
+- [ ] Log lockouts at WARN level
+- [ ] Use `logging.PhoneAttr()` for phone numbers
+
+### 7.7 Tests
+- [ ] Test OTP generation format (6 digits)
 - [ ] Test OTP verification (correct/incorrect)
+- [ ] Test OTP expiry
 - [ ] Test attempt counting
 - [ ] Test lockout after max attempts
+- [ ] Test lockout duration
 - [ ] Test cooldown enforcement
-- [ ] Test OTP expiry
+- [ ] Test invalidation
+- [ ] Integration test with Redis (testcontainers)
 
 ---
 
 ## Phase 8: Security Audit Logging (`audit` package)
 
 ### 8.1 Event Types
-- [ ] Define event types:
-  - `LOGIN_SUCCESS`, `LOGIN_FAILED`
-  - `PASSWORD_CHANGED`
-  - `OTP_SENT`, `OTP_VERIFIED`, `OTP_FAILED`, `OTP_LOCKED`
-  - `TOKEN_REVOKED`
-  - `PERMISSION_DENIED`
-  - `SUSPICIOUS_ACTIVITY`
+- [ ] Define `EventType` enum:
+  ```go
+  EventLoginSuccess     EventType = "LOGIN_SUCCESS"
+  EventLoginFailed      EventType = "LOGIN_FAILED"
+  EventPasswordChanged  EventType = "PASSWORD_CHANGED"
+  EventOTPSent          EventType = "OTP_SENT"
+  EventOTPVerified      EventType = "OTP_VERIFIED"
+  EventOTPFailed        EventType = "OTP_FAILED"
+  EventOTPLocked        EventType = "OTP_LOCKED"
+  EventTokenRevoked     EventType = "TOKEN_REVOKED"
+  EventPermissionDenied EventType = "PERMISSION_DENIED"
+  EventSuspiciousActivity EventType = "SUSPICIOUS_ACTIVITY"
+  ```
 
 ### 8.2 Severity Levels
-- [ ] Define severity: `INFO`, `WARN`, `ALERT`
-- [ ] Map events to appropriate severity
+- [ ] Define `Severity` enum: `INFO`, `WARN`, `ALERT`
+- [ ] Map events to default severity:
+  - INFO: LoginSuccess, PasswordChanged, OTPSent, OTPVerified, TokenRevoked
+  - WARN: LoginFailed, OTPFailed, OTPLocked, PermissionDenied
+  - ALERT: SuspiciousActivity
 
-### 8.3 Audit Logger
-- [ ] Implement `Log(ctx context.Context, event Event)` 
-- [ ] Include standard fields: event_type, severity, user_id (masked), ip_address, user_agent, timestamp
-- [ ] Support additional event-specific details
-- [ ] Integrate with `txova-go-core/logging`
+### 8.3 Event Structure
+- [ ] Define `Event` struct:
+  ```go
+  type Event struct {
+      Type      EventType
+      Severity  Severity
+      UserID    string  // Always masked
+      Phone     string  // Always masked
+      Email     string  // Always masked
+      IPAddress string
+      UserAgent string
+      Timestamp time.Time
+      Details   map[string]any
+  }
+  ```
 
-### 8.4 Alert Handling
-- [ ] Send ALERT events to monitoring (hook interface)
-- [ ] Support configurable alert handlers
+### 8.4 Audit Logger
+- [ ] Implement `Logger` struct wrapping `*logging.Logger`
+- [ ] Implement `Log(ctx context.Context, event Event)`
+- [ ] Auto-mask PII fields using `mask` package
+- [ ] Extract context fields (request_id, correlation_id)
+- [ ] Format as structured JSON
 
-### 8.5 Safety
-- [ ] Never log sensitive data (passwords, tokens, OTPs)
-- [ ] Always mask PII in logs using `mask` package
-- [ ] Structured JSON format
+### 8.5 Alert Handling
+- [ ] Define `AlertHandler` interface: `Handle(ctx context.Context, event Event) error`
+- [ ] Implement `WithAlertHandler(handler AlertHandler)` option
+- [ ] Invoke handler for ALERT severity events
+- [ ] Provide no-op default handler
 
-### 8.6 Tests
+### 8.6 Convenience Methods
+- [ ] `LogLoginSuccess(ctx, userID, ip, userAgent)`
+- [ ] `LogLoginFailed(ctx, identifier, ip, userAgent, reason)`
+- [ ] `LogOTPSent(ctx, phone)`
+- [ ] `LogOTPVerified(ctx, phone)`
+- [ ] `LogOTPFailed(ctx, phone, reason)`
+- [ ] `LogOTPLocked(ctx, phone)`
+- [ ] etc.
+
+### 8.7 Tests
 - [ ] Test event logging format
 - [ ] Test severity mapping
-- [ ] Test PII masking in logs
+- [ ] Test PII auto-masking
 - [ ] Test alert handler invocation
+- [ ] Test context field extraction
 
 ---
 
 ## Phase 9: Integration & Documentation
 
 ### 9.1 Integration Testing
-- [ ] Integration tests for OTP with Redis (testcontainers)
+- [ ] Set up testcontainers for Redis
+- [ ] Integration tests for OTP service with real Redis
 - [ ] End-to-end tests for password hash/verify flow
-- [ ] End-to-end tests for encrypt/decrypt flow
+- [ ] End-to-end tests for encrypt/decrypt with key rotation
 
 ### 9.2 Final Validation
-- [ ] Run full test suite with coverage report
+- [ ] Run full test suite: `go test -race -cover ./...`
 - [ ] Verify > 90% coverage target
-- [ ] Run `golangci-lint` with comprehensive ruleset
-- [ ] Run `gosec` for security analysis
-- [ ] Fix any issues
+- [ ] Run linting: `golangci-lint run ./...`
+- [ ] Run security analysis: `gosec ./...`
+- [ ] Run vet: `go vet ./...`
+- [ ] Fix all issues
 
 ### 9.3 Documentation
-- [ ] Write README.md with quick start guide
-- [ ] Write USAGE.md with detailed examples for each package
-- [ ] Ensure all exported types and functions have godoc comments
-- [ ] Document security considerations and best practices
+- [ ] Write README.md with:
+  - Overview and features
+  - Installation
+  - Quick start examples
+  - Package descriptions
+- [ ] Write USAGE.md with:
+  - Detailed examples for each package
+  - Configuration options
+  - Security best practices
+  - Integration patterns
+- [ ] Ensure all exported types/functions have godoc comments
 
 ---
 
@@ -314,3 +458,4 @@ Implementation plan for the security utilities library providing password hashin
 | Zero plaintext leaks | Required |
 | Zero critical linting issues | Required |
 | All gosec issues resolved | Required |
+| All exports documented | Required |
