@@ -141,13 +141,13 @@ if !token.Compare(providedToken, storedHash) {
 ### Token Validation
 
 ```go
-// Validate hex-encoded tokens
-if !token.IsValidHexToken(t, 64) {  // 64 chars = 32 bytes
+// Validate hex-encoded tokens (32 bytes = 64 hex chars)
+if !token.IsValidHexToken(t, 32) {
     return errors.New("invalid token format")
 }
 
-// Validate base64url tokens
-if !token.IsValidBase64Token(t) {
+// Validate base64url tokens (32 bytes)
+if !token.IsValidBase64Token(t, 32) {
     return errors.New("invalid token format")
 }
 ```

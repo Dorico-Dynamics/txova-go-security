@@ -479,8 +479,11 @@ func TestIsValidHexToken(t *testing.T) {
 }
 
 func TestIsValidBase64Token(t *testing.T) {
-	// Generate a valid token for testing
-	validToken, _ := GenerateURLSafe()
+	// Generate a valid token for testing.
+	validToken, err := GenerateURLSafe()
+	if err != nil {
+		t.Fatalf("GenerateURLSafe() error = %v", err)
+	}
 
 	tests := []struct {
 		name          string
