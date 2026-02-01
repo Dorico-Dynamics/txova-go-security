@@ -92,17 +92,29 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	t.Run("unique nonce per encryption", func(t *testing.T) {
 		plaintext := []byte("same plaintext")
-		encrypted1, _ := cipher.Encrypt(plaintext)
-		encrypted2, _ := cipher.Encrypt(plaintext)
+		encrypted1, err := cipher.Encrypt(plaintext)
+		if err != nil {
+			t.Fatalf("Encrypt() error = %v", err)
+		}
+		encrypted2, err := cipher.Encrypt(plaintext)
+		if err != nil {
+			t.Fatalf("Encrypt() error = %v", err)
+		}
 
-		// Same plaintext should produce different ciphertext due to unique nonces
+		// Same plaintext should produce different ciphertext due to unique nonces.
 		if encrypted1 == encrypted2 {
 			t.Error("expected different ciphertext for same plaintext (nonce should be unique)")
 		}
 
-		// Both should decrypt to the same plaintext
-		decrypted1, _ := cipher.Decrypt(encrypted1)
-		decrypted2, _ := cipher.Decrypt(encrypted2)
+		// Both should decrypt to the same plaintext.
+		decrypted1, err := cipher.Decrypt(encrypted1)
+		if err != nil {
+			t.Fatalf("Decrypt(encrypted1) error = %v", err)
+		}
+		decrypted2, err := cipher.Decrypt(encrypted2)
+		if err != nil {
+			t.Fatalf("Decrypt(encrypted2) error = %v", err)
+		}
 
 		if !bytes.Equal(decrypted1, plaintext) || !bytes.Equal(decrypted2, plaintext) {
 			t.Error("decryption should produce same plaintext")
@@ -110,7 +122,10 @@ func TestEncryptDecrypt(t *testing.T) {
 	})
 
 	t.Run("ciphertext format", func(t *testing.T) {
-		encrypted, _ := cipher.Encrypt([]byte("test"))
+		encrypted, err := cipher.Encrypt([]byte("test"))
+		if err != nil {
+			t.Fatalf("Encrypt() error = %v", err)
+		}
 
 		parts := strings.Split(encrypted, ":")
 		if len(parts) != 3 {

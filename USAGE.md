@@ -253,7 +253,7 @@ newCiphertext, _ := cipher.Encrypt(plaintext)  // Uses key-v2
 
 ### Ciphertext Format
 
-```
+```text
 {key_id}:{nonce_base64}:{ciphertext_base64}
 
 Example:
@@ -404,7 +404,7 @@ service.Invalidate(ctx, phone)
 
 ### Redis Key Patterns
 
-```
+```text
 otp:code:{phone}      - Hashed OTP (TTL: 5m)
 otp:attempts:{phone}  - Attempt counter (TTL: 15m)
 otp:lockout:{phone}   - Lockout flag (TTL: 15m)

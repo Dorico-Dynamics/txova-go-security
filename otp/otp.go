@@ -233,11 +233,11 @@ func (s *Service) Verify(ctx context.Context, phone contact.PhoneNumber, code st
 		return secerrors.OTPLocked()
 	}
 
-	// Increment attempt counter
+	// Increment attempt counter.
 	attemptsKey := s.key("attempts", phoneStr)
 	attempts, err := s.redis.Incr(ctx, attemptsKey).Result()
 	if err != nil {
-		return secerrors.OTPInvalid()
+		return secerrors.OTPStorageFailed(err)
 	}
 
 	// Set expiry on attempts key if it's the first attempt
@@ -282,7 +282,7 @@ func (s *Service) IsLocked(ctx context.Context, phone contact.PhoneNumber) (bool
 	lockoutKey := s.key("lockout", phone.String())
 	exists, err := s.redis.Exists(ctx, lockoutKey).Result()
 	if err != nil {
-		return false, secerrors.OTPInvalid()
+		return false, secerrors.OTPStorageFailed(err)
 	}
 	return exists > 0, nil
 }
@@ -308,7 +308,7 @@ func (s *Service) Invalidate(ctx context.Context, phone contact.PhoneNumber) err
 	otpKey := s.key("code", phoneStr)
 	_, err := s.redis.Del(ctx, otpKey).Result()
 	if err != nil {
-		return secerrors.OTPInvalid()
+		return secerrors.OTPStorageFailed(err)
 	}
 	s.log(ctx, "info", "OTP invalidated", "phone", mask.Phone(phoneStr))
 	return nil
