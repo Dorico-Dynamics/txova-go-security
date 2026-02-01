@@ -35,6 +35,12 @@ const (
 	MaxTokenBytes = 256
 )
 
+// Error message templates for token validation.
+const (
+	errTokenLengthMin = "token length must be at least %d bytes"
+	errTokenLengthMax = "token length must be at most %d bytes"
+)
+
 // Generate creates a cryptographically secure random token.
 // Returns a 32-byte (256-bit) token encoded as hex string (64 characters).
 func Generate() (string, error) {
@@ -45,10 +51,10 @@ func Generate() (string, error) {
 // Returns the token encoded as hex string (2 characters per byte).
 func GenerateWithLength(bytes int) (string, error) {
 	if bytes < MinTokenBytes {
-		return "", errors.ValidationErrorf("token length must be at least %d bytes", MinTokenBytes)
+		return "", errors.ValidationErrorf(errTokenLengthMin, MinTokenBytes)
 	}
 	if bytes > MaxTokenBytes {
-		return "", errors.ValidationErrorf("token length must be at most %d bytes", MaxTokenBytes)
+		return "", errors.ValidationErrorf(errTokenLengthMax, MaxTokenBytes)
 	}
 
 	token := make([]byte, bytes)
@@ -69,10 +75,10 @@ func GenerateURLSafe() (string, error) {
 // Returns the token encoded as URL-safe base64 without padding.
 func GenerateURLSafeWithLength(bytes int) (string, error) {
 	if bytes < MinTokenBytes {
-		return "", errors.ValidationErrorf("token length must be at least %d bytes", MinTokenBytes)
+		return "", errors.ValidationErrorf(errTokenLengthMin, MinTokenBytes)
 	}
 	if bytes > MaxTokenBytes {
-		return "", errors.ValidationErrorf("token length must be at most %d bytes", MaxTokenBytes)
+		return "", errors.ValidationErrorf(errTokenLengthMax, MaxTokenBytes)
 	}
 
 	token := make([]byte, bytes)
@@ -87,10 +93,10 @@ func GenerateURLSafeWithLength(bytes int) (string, error) {
 // Returns raw bytes, useful when you need to control the encoding yourself.
 func GenerateBytes(length int) ([]byte, error) {
 	if length < MinTokenBytes {
-		return nil, errors.ValidationErrorf("token length must be at least %d bytes", MinTokenBytes)
+		return nil, errors.ValidationErrorf(errTokenLengthMin, MinTokenBytes)
 	}
 	if length > MaxTokenBytes {
-		return nil, errors.ValidationErrorf("token length must be at most %d bytes", MaxTokenBytes)
+		return nil, errors.ValidationErrorf(errTokenLengthMax, MaxTokenBytes)
 	}
 
 	token := make([]byte, length)
