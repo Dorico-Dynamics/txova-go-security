@@ -39,7 +39,7 @@ Implementation plan for the security utilities library providing password hashin
 | Phase 4: PIN Generation | ✅ Complete | `809e691` | 92.6% |
 | Phase 5: Encryption | ✅ Complete | `ac1aab7` | 92.3% |
 | Phase 6: PII Masking | ✅ Complete | `3c8397d` | 98.1% |
-| Phase 7: OTP Service | ⏳ Pending | - | - |
+| Phase 7: OTP Service | ✅ Complete | `599a0bd` | 83.8% |
 | Phase 8: Security Audit Logging | ⏳ Pending | - | - |
 | Phase 9: Integration & Documentation | ⏳ Pending | - | - |
 
@@ -279,69 +279,69 @@ Implementation plan for the security utilities library providing password hashin
 
 ---
 
-## Phase 7: OTP Service (`otp` package)
+## Phase 7: OTP Service (`otp` package) ✅
 
 ### 7.1 Dependencies
-- [ ] Require Redis client interface for storage
-- [ ] Accept `*logging.Logger` for logging
-- [ ] Use `contact.PhoneNumber` for phone validation
+- [x] Require Redis client interface for storage
+- [x] Accept `*logging.Logger` for logging
+- [x] Use `contact.PhoneNumber` for phone validation
 
 ### 7.2 OTP Generation
-- [ ] Implement `Service` struct with config and Redis client
-- [ ] Implement `Generate(ctx context.Context, phone contact.PhoneNumber) (string, time.Time, error)`
-- [ ] Generate 6-digit OTP using `crypto/rand`
-- [ ] Check cooldown before generating (return `CodeOTPCooldown` error if active)
-- [ ] Hash OTP with SHA256 before storing (never store plaintext)
-- [ ] Store in Redis with TTL: `otp:{phone}` → hashed OTP (5 minutes)
-- [ ] Set cooldown: `otp:cooldown:{phone}` (60 seconds)
-- [ ] Return plaintext OTP to caller (for sending via SMS)
-- [ ] Return expiry time
+- [x] Implement `Service` struct with config and Redis client
+- [x] Implement `Generate(ctx context.Context, phone contact.PhoneNumber) (string, time.Time, error)`
+- [x] Generate 6-digit OTP using `crypto/rand`
+- [x] Check cooldown before generating (return `CodeOTPCooldown` error if active)
+- [x] Hash OTP with SHA256 before storing (never store plaintext)
+- [x] Store in Redis with TTL: `otp:{phone}` → hashed OTP (5 minutes)
+- [x] Set cooldown: `otp:cooldown:{phone}` (60 seconds)
+- [x] Return plaintext OTP to caller (for sending via SMS)
+- [x] Return expiry time
 
 ### 7.3 OTP Verification
-- [ ] Implement `Verify(ctx context.Context, phone contact.PhoneNumber, code string) error`
-- [ ] Check lockout first (return `CodeOTPLocked` if locked)
-- [ ] Increment attempt counter on every call (success or fail)
-- [ ] Hash provided code and compare with stored hash
-- [ ] On success: delete OTP and attempts keys
-- [ ] On failure: check if max attempts reached, set lockout if so
-- [ ] Return generic errors (don't reveal if phone exists)
+- [x] Implement `Verify(ctx context.Context, phone contact.PhoneNumber, code string) error`
+- [x] Check lockout first (return `CodeOTPLocked` if locked)
+- [x] Increment attempt counter on every call (success or fail)
+- [x] Hash provided code and compare with stored hash
+- [x] On success: delete OTP and attempts keys
+- [x] On failure: check if max attempts reached, set lockout if so
+- [x] Return generic errors (don't reveal if phone exists)
 
 ### 7.4 Rate Limiting & Lockout
-- [ ] Key patterns:
+- [x] Key patterns:
   - `otp:{phone}` - hashed OTP (TTL: 5m)
   - `otp:attempts:{phone}` - attempt counter (TTL: 15m)
   - `otp:lockout:{phone}` - lockout flag (TTL: 15m)
   - `otp:cooldown:{phone}` - cooldown flag (TTL: 60s)
-- [ ] Implement `IsLocked(ctx context.Context, phone contact.PhoneNumber) (bool, error)`
-- [ ] Implement `GetAttempts(ctx context.Context, phone contact.PhoneNumber) (int, error)`
-- [ ] Implement `Invalidate(ctx context.Context, phone contact.PhoneNumber) error`
+- [x] Implement `IsLocked(ctx context.Context, phone contact.PhoneNumber) (bool, error)`
+- [x] Implement `GetAttempts(ctx context.Context, phone contact.PhoneNumber) int`
+- [x] Implement `Invalidate(ctx context.Context, phone contact.PhoneNumber) error`
 
 ### 7.5 Configuration
-- [ ] `Config` struct with:
+- [x] `Config` struct with:
   - `Length int` (default: 6)
   - `Expiry time.Duration` (default: 5m)
   - `MaxAttempts int` (default: 3)
   - `LockoutDuration time.Duration` (default: 15m)
   - `Cooldown time.Duration` (default: 60s)
   - `KeyPrefix string` (default: "otp")
-- [ ] Functional options: `WithLength()`, `WithExpiry()`, etc.
+- [x] Functional options: `WithLength()`, `WithExpiry()`, etc.
 
 ### 7.6 Logging Integration
-- [ ] Log OTP generation (masked phone, expiry) at INFO level
-- [ ] Log verification attempts (masked phone, success/fail) at INFO/WARN
-- [ ] Log lockouts at WARN level
-- [ ] Use `logging.PhoneAttr()` for phone numbers
+- [x] Log OTP generation (masked phone, expiry) at INFO level
+- [x] Log verification attempts (masked phone, success/fail) at INFO/WARN
+- [x] Log lockouts at WARN level
+- [x] Use mask.Phone() for phone numbers
 
 ### 7.7 Tests
-- [ ] Test OTP generation format (6 digits)
-- [ ] Test OTP verification (correct/incorrect)
-- [ ] Test OTP expiry
-- [ ] Test attempt counting
-- [ ] Test lockout after max attempts
-- [ ] Test lockout duration
-- [ ] Test cooldown enforcement
-- [ ] Test invalidation
-- [ ] Integration test with Redis (testcontainers)
+- [x] Test OTP generation format (6 digits)
+- [x] Test OTP verification (correct/incorrect)
+- [x] Test OTP expiry
+- [x] Test attempt counting
+- [x] Test lockout after max attempts
+- [x] Test lockout duration
+- [x] Test cooldown enforcement
+- [x] Test invalidation
+- [ ] Integration test with Redis (testcontainers) - deferred to Phase 9
 
 ---
 
