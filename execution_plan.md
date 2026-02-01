@@ -37,7 +37,7 @@ Implementation plan for the security utilities library providing password hashin
 | Phase 2: Password Hashing | ✅ Complete | `a3b43d3` | 96.5% |
 | Phase 3: Token Generation | ✅ Complete | `41323f2` | 93.6% |
 | Phase 4: PIN Generation | ✅ Complete | `809e691` | 92.6% |
-| Phase 5: Encryption | ⏳ Pending | - | - |
+| Phase 5: Encryption | ✅ Complete | `ac1aab7` | 92.3% |
 | Phase 6: PII Masking | ⏳ Pending | - | - |
 | Phase 7: OTP Service | ⏳ Pending | - | - |
 | Phase 8: Security Audit Logging | ⏳ Pending | - | - |
@@ -186,47 +186,47 @@ Implementation plan for the security utilities library providing password hashin
 
 ---
 
-## Phase 5: Encryption (`encrypt` package)
+## Phase 5: Encryption (`encrypt` package) ✅
 
 ### 5.1 AES-256-GCM Implementation
-- [ ] Implement `Cipher` struct holding keys
-- [ ] Implement `Encrypt(plaintext []byte) (string, error)`
-- [ ] Implement `Decrypt(ciphertext string) ([]byte, error)`
-- [ ] Use AES-256-GCM (authenticated encryption with associated data)
-- [ ] Generate unique 12-byte nonce per encryption using `crypto/rand`
-- [ ] Never reuse nonce with same key
+- [x] Implement `Cipher` struct holding keys
+- [x] Implement `Encrypt(plaintext []byte) (string, error)`
+- [x] Implement `Decrypt(ciphertext string) ([]byte, error)`
+- [x] Use AES-256-GCM (authenticated encryption with associated data)
+- [x] Generate unique 12-byte nonce per encryption using `crypto/rand`
+- [x] Never reuse nonce with same key
 
 ### 5.2 Ciphertext Format
-- [ ] Format: `{key_id}:{nonce_base64}:{ciphertext_base64}`
-- [ ] Example: `primary:dGVzdG5vbmNl:Y2lwaGVydGV4dA==`
-- [ ] Parse format on decryption to extract key_id and nonce
+- [x] Format: `{key_id}:{nonce_base64}:{ciphertext_base64}`
+- [x] Example: `primary:dGVzdG5vbmNl:Y2lwaGVydGV4dA==`
+- [x] Parse format on decryption to extract key_id and nonce
 
 ### 5.3 Key Management
-- [ ] Support 256-bit (32-byte) keys only
-- [ ] Implement `New(primaryKeyID string, primaryKey []byte) (*Cipher, error)`
-- [ ] Implement `AddKey(keyID string, key []byte) error` for rotation
-- [ ] Implement `SetPrimaryKey(keyID string) error`
-- [ ] Primary key used for encryption, all keys available for decryption
+- [x] Support 256-bit (32-byte) keys only
+- [x] Implement `New(primaryKeyID string, primaryKey []byte) (*Cipher, error)`
+- [x] Implement `AddKey(keyID string, key []byte) error` for rotation
+- [x] Implement `SetPrimaryKey(keyID string) error`
+- [x] Primary key used for encryption, all keys available for decryption
 
 ### 5.4 Field-Level Encryption Helpers
-- [ ] Implement `EncryptField(value string) (string, error)` - string wrapper
-- [ ] Implement `DecryptField(encrypted string) (string, error)` - string wrapper
-- [ ] Handle empty strings gracefully (return empty, not error)
+- [x] Implement `EncryptField(value string) (string, error)` - string wrapper
+- [x] Implement `DecryptField(encrypted string) (string, error)` - string wrapper
+- [x] Handle empty strings gracefully (return empty, not error)
 
 ### 5.5 Error Handling
-- [ ] Use `errors.New(CodeEncryptionFailed, ...)` for encryption errors
-- [ ] Use `errors.New(CodeDecryptionFailed, ...)` for decryption errors
-- [ ] Never expose internal crypto errors to callers
+- [x] Use `errors.New(CodeEncryptionFailed, ...)` for encryption errors
+- [x] Use `errors.New(CodeDecryptionFailed, ...)` for decryption errors
+- [x] Never expose internal crypto errors to callers
 
 ### 5.6 Tests
-- [ ] Test encrypt/decrypt roundtrip (various sizes)
-- [ ] Test unique nonce per encryption (encrypt same plaintext twice)
-- [ ] Test key rotation (encrypt with new key, decrypt with old key)
-- [ ] Test tamper detection (modify ciphertext, should fail)
-- [ ] Test invalid key ID handling
-- [ ] Test invalid ciphertext format handling
-- [ ] Test empty plaintext/ciphertext
-- [ ] Benchmark encryption latency (target: < 1ms)
+- [x] Test encrypt/decrypt roundtrip (various sizes)
+- [x] Test unique nonce per encryption (encrypt same plaintext twice)
+- [x] Test key rotation (encrypt with new key, decrypt with old key)
+- [x] Test tamper detection (modify ciphertext, should fail)
+- [x] Test invalid key ID handling
+- [x] Test invalid ciphertext format handling
+- [x] Test empty plaintext/ciphertext
+- [x] Benchmark encryption latency (target: < 1ms)
 
 ---
 

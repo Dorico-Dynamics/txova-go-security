@@ -1,5 +1,7 @@
 github.com/Dorico-Dynamics/txova-go-core v1.0.0 h1:xPyNhHKu3zIUQ9R4b9flzd251gJn32vs1HX/Vzttf6M=
 github.com/Dorico-Dynamics/txova-go-core v1.0.0/go.mod h1:Rwqq+wnlM+AETcwuhqKGHJOh8ljJ8GOG2hTvWgPUQTM=
+github.com/Dorico-Dynamics/txova-go-types v1.0.1 h1:bndgmVRQEuCma3A/35GEyc2lVNvnvecw3hdj191ZG4c=
+github.com/Dorico-Dynamics/txova-go-types v1.0.1/go.mod h1:WkWIOXLkVwFu1wyLGm9U2R2dTECuTtEJTR8rIiA+dBw=
 golang.org/x/crypto v0.47.0 h1:V6e3FRj+n4dbpw86FJ8Fv7XVOql7TEwpHapKoMJ/GO8=
 golang.org/x/crypto v0.47.0/go.mod h1:ff3Y9VzzKbwSSEzWqJsJVBnWmRwRSHt/6Op5n9bQc4A=
 golang.org/x/sys v0.40.0 h1:DBZZqJ2Rkml6QMQsZywtnjnnGvHza6BTfYFWY9kjEWQ=
