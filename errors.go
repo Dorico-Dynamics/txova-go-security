@@ -7,6 +7,12 @@ import (
 	"github.com/Dorico-Dynamics/txova-go-core/errors"
 )
 
+func init() {
+	for code, status := range codeHTTPStatus {
+		errors.RegisterHTTPStatus(code, status)
+	}
+}
+
 // Security-specific error codes extending txova-go-core/errors.
 const (
 	// CodeOTPExpired indicates the OTP has expired.
